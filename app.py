@@ -2,6 +2,7 @@ from sqlalchemy import (create_engine, Column, Integer,
                         String, Date, ForeignKey)
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
+from sqlalchemy import func
 
 import csv
 import datetime
@@ -9,6 +10,8 @@ import time
 
 # why do i need this if i've imported datetime above? does the above statement not import ALL of the datetime functions?
 from datetime import date
+
+from statistics import median, mode, mean
 
 engine = create_engine("sqlite:///inventory.db", echo=False)
 Session = sessionmaker(bind=engine)
@@ -66,7 +69,7 @@ def add_inventory_csv():
             if product_in_db == None:
                 product_name = row[0]
                 product_price = clean_product_price(row[1])
-                product_quantity = row[2]
+                product_quantity = int(row[2])
                 date_updated = clean_date_updated(row[3])
                 brand_name = row[4]
                 brand_id = session.query(Brands.brand_id).filter(Brands.brand_name == brand_name).scalar_subquery()
@@ -115,8 +118,8 @@ def menu():
             \rB) Backup the Database
             \rQ) Quit''')
         choice = input('\nWhat would you like to do?  ')
-        if choice.upper() in ['N', 'V', 'A', 'B', 'Q']:
-            choice = choice.upper()
+        choice = choice.upper()
+        if choice in ['N', 'V', 'A', 'B', 'Q']:
             return choice
         else:
             input('''
@@ -156,6 +159,7 @@ def program():
         if choice == 'N':
             #New Product
             product_name = input('Product Name:  ')
+            # must ensure product_quantity is an integer
             product_quantity = input('Product Quantity: ')
             price_error = True
             while price_error:
@@ -217,30 +221,35 @@ def program():
             #     session.commit()
             #     print('Book delected!')
             #     time.sleep(1.5)
-        elif choice == 'B':
+        elif choice == 'A':
             #analyze
             # would be good to add code to show multiple products if they are both/all the most expensive/least expensive
             most_expensive_product = session.query(Product).order_by(Product.product_price).first()
             least_expensive_product = session.query(Product).order_by(Product.product_price.desc()).first()
             # this next one is not correct...should group by brand id then return brand
             #brand_with_most_products = session.query(Product).count()
-            #average_product_price = session.query(Product).order_by(Product.product_price).first()
-            #median_product_price =
-            #mode_product_price =
-            #total_number_of_items_in_inventory
-            #total_value_of_inventory
+
+            product_prices = []
+            total_value_of_inventory = 0
+            for product in session.query(Product):
+                    product_prices.append(product.product_price)
+                    total_value_of_inventory = total_value_of_inventory + (product.product_quantity * product.product_price)
+            mean_product_price = round(mean(product_prices))
+            median_product_price = median(product_prices)
+            mode_product_price = mode(product_prices)
+            total_number_of_items_in_inventory = session.query(Product).count()
+
+            # \rMost Expensive Product: {most_expensive_product}
+            # \rLeast Expensive Product: {least_expensive_product}
+            #\rBrand with the Most Products: {brand_with_most_products}
 
             print(f'''\n****** INVENTORY ANALYSIS *****
-                \rMost Expensive Product: {most_expensive_product}
-                \rLeast Expensive Product: {least_expensive_product}
-                \rBrand with the Most Products: {brand_with_most_products}
-                \rAverage Product Price: {average_product_price}
+                \rAverage (Mean) Product Price: {mean_product_price}
                 \rMedian Product Price: {median_product_price}
                 \rMode Product Price: {mode_product_price}
                 \rTotal Number of Items in Inventory: {total_number_of_items_in_inventory}
                 \rTotal Value of Inventory: {total_value_of_inventory}''')
             input('\nPress enter to return to the main menu.')
-
         else:
             print('GOODBYE')
             app_running = False
