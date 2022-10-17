@@ -7,6 +7,9 @@ import csv
 import datetime
 import time
 
+# why do i need this if i've imported datetime above? does the above statement not import ALL of the datetime functions?
+from datetime import date
+
 engine = create_engine("sqlite:///inventory.db", echo=False)
 Session = sessionmaker(bind=engine)
 session = Session()
@@ -76,6 +79,23 @@ def clean_product_price (price_str):
     price_float = float(stripped_price)
     return int(price_float * 100)
 
+def clean_price(price_str):
+    # need to add code here to clean price when it's input - same as book.db
+    try:
+        price_float = float(price_str)
+    except ValueError:
+        input('''
+            \n********* PRICE ERROR *******
+            \rThe price should be a number without a currency symbol.
+            \rEx: 10.99
+            \rPress enter to try again.
+            \r******************************''')
+        #return  ???
+    else:
+        return int(price_float * 100)
+
+
+
 def clean_date_updated(date_str):
     split_date = date_str.split('/')
     month = int(split_date[0])
@@ -95,15 +115,40 @@ def menu():
             \rB) Backup the Database
             \rQ) Quit''')
         choice = input('\nWhat would you like to do?  ')
-        # why does choice.upper not work here?
-        if choice in ['N', 'V', 'A', 'B', 'Q']:
+        if choice.upper() in ['N', 'V', 'A', 'B', 'Q']:
+            choice = choice.upper()
             return choice
         else:
             input('''
             \rPlease choose one of the options above (N, V, A, B, or Q)
             \rPress enter to try again.''')
 
-# Here is where I am...working on updating the book.db code to this new program
+def find_brand_id(brand_name):
+    brand_id = session.query(Brands.brand_id).filter(Brands.brand_name == brand_name).scalar_subquery()
+    return brand_id
+
+def clean_id(id_str, options):
+    try:
+        product_id = int(id_str)
+    except ValueError:
+        input('''
+            \n********* ID ERROR *******
+            \rThe ID should be a number.
+            \rPress enter to try again.
+            \r******************************''')
+        return
+    else:
+        if product_id in options:
+            return product_id
+        else:
+            input(f'''
+                \n********* ID ERROR *******
+                \rOptions: {options}
+                \rPress enter to try again.
+                \r******************************''')
+            return
+
+
 def program():
     program_running = True
     while program_running:
@@ -112,72 +157,88 @@ def program():
             #New Product
             product_name = input('Product Name:  ')
             product_quantity = input('Product Quantity: ')
-            product_price = input('Product Price: ')
-            product_brand = input('Product Brand: ')
             price_error = True
             while price_error:
-                price = input('Price (Ex: 25.64):  ')
-                price = clean_price(price)
-                if type(price) == int:
+                product_price = input('Product Price (Ex: 5.64):  ')
+                product_price = clean_price(product_price)
+                if type(product_price) == int:
                     price_error = False
-            new_product = Product(product_name=product_name, product_quantity=product_quantity, product_price=product_price, date_updated = today(), brand_id=brand_id)
+            date_updated = date.today()
+            product_brand = input('Product Brand: ')
+            # must insert code to take product brand and match it to a brand id, maybe a separate function that matches brand name with brand id
+            # maybe take the product brand entered, look it up in the table, if it doesn't exist say 'this looks like a new brand, would you like to add it to the db? to view list of brands, press XX
+
+            brand_id = find_brand_id(product_brand)
+
+            new_product = Product(product_name=product_name, product_quantity=product_quantity, product_price=product_price, date_updated=date_updated, brand_id=brand_id)
             session.add(new_product)
             session.commit()
             print('Product added!')
             time.sleep(1.5)
 
-
         elif choice == 'V':
-            #view books
-            for book in session.query(Book):
-                print(f'{book.id} | {book.title} | {book.author}')
-            input('\nPress enter to return to the main menu.')
-        elif choice == 'A':
-            #search
-            id_options = []
-            for book in session.query(Book):
-                id_options.append(book.id)
+            # view product
+            #generates a list of all product ids
+            product_id_options = []
+            for product in session.query(Product):
+                product_id_options.append(product.product_id)
             id_error = True
             while id_error:
-                id_choice = input(f'''
-                    \nID Options: {id_options}
-                    \rBook id: ''')
-                id_choice = clean_id(id_choice, id_options)
-                if type(id_choice) == int:
+                chosen_product_id = input(f'''
+                    \nProduct ID Options: {product_id_options}
+                    \rPlease enter a product id to view the product: ''')
+                chosen_product_id = clean_id(chosen_product_id, product_id_options)
+                if type(chosen_product_id) == int:
                     id_error = False
-            the_book = session.query(Book).filter(Book.id==id_choice).first()
+            chosen_product = session.query(Product).filter(Product.product_id==chosen_product_id).first()
+            print(chosen_product)
             print(f'''
-                \n{the_book.title} by {the_book.author}
-                \rPublished: {the_book.published_date}
-                \rPrice: ${the_book.price / 100}''')
-            sub_choice = submenu()
-            if sub_choice == '1':
-                #edit
-                the_book.title = edit_check('Title', the_book.title)
-                the_book.author = edit_check('Author', the_book.author)
-                the_book.published_date = edit_check('Date', the_book.published_date)
-                the_book.price = edit_check('Price', the_book.price)
-                session.commit()
-                print('Book updated!')
-                time.sleep(1.5)
+                \nProduct Name: {chosen_product.product_name}
+                \nProduct Quantity: {chosen_product.product_quantity}
+                \rDate Last Updated: {chosen_product.date_updated}
+                \rPrice: ${chosen_product.product_price / 100}
+                \rBrand ID: {chosen_product.brand_id}''')
+                # should add some way here to display Brand Name
 
-            elif sub_choice == '2':
-                #delete
-                session.delete(the_book)
-                session.commit()
-                print('Book delected!')
-                time.sleep(1.5)
+            # sub_choice = submenu()
+            # if sub_choice == '1':
+            #     #edit
+            #     the_book.title = edit_check('Title', the_book.title)
+            #     the_book.author = edit_check('Author', the_book.author)
+            #     the_book.published_date = edit_check('Date', the_book.published_date)
+            #     the_book.price = edit_check('Price', the_book.price)
+            #     session.commit()
+            #     print('Book updated!')
+            #     time.sleep(1.5)
+            #
+            # elif sub_choice == '2':
+            #     #delete
+            #     session.delete(the_book)
+            #     session.commit()
+            #     print('Book delected!')
+            #     time.sleep(1.5)
         elif choice == 'B':
             #analyze
-            oldest_book = session.query(Book).order_by(Book.published_date).first()
-            newest_book = session.query(Book).order_by(Book.published_date.desc()).first()
-            total_books = session.query(Book).count()
-            python_books = session.query(Book).filter(Book.title.like('%Python%')).count()
-            print(f'''\n****** BOOK ANALYSIS *****
-                \rOldest Book: {oldest_book}
-                \rNewest Book: {newest_book}
-                \rTotal Books: {total_books}
-                \rNumber of Python Books: {python_books}''')
+            # would be good to add code to show multiple products if they are both/all the most expensive/least expensive
+            most_expensive_product = session.query(Product).order_by(Product.product_price).first()
+            least_expensive_product = session.query(Product).order_by(Product.product_price.desc()).first()
+            # this next one is not correct...should group by brand id then return brand
+            #brand_with_most_products = session.query(Product).count()
+            #average_product_price = session.query(Product).order_by(Product.product_price).first()
+            #median_product_price =
+            #mode_product_price =
+            #total_number_of_items_in_inventory
+            #total_value_of_inventory
+
+            print(f'''\n****** INVENTORY ANALYSIS *****
+                \rMost Expensive Product: {most_expensive_product}
+                \rLeast Expensive Product: {least_expensive_product}
+                \rBrand with the Most Products: {brand_with_most_products}
+                \rAverage Product Price: {average_product_price}
+                \rMedian Product Price: {median_product_price}
+                \rMode Product Price: {mode_product_price}
+                \rTotal Number of Items in Inventory: {total_number_of_items_in_inventory}
+                \rTotal Value of Inventory: {total_value_of_inventory}''')
             input('\nPress enter to return to the main menu.')
 
         else:
