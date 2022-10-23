@@ -1,17 +1,20 @@
 from sqlalchemy import (create_engine, Column, Integer,
                         String, Date, ForeignKey)
 from sqlalchemy.ext.declarative import declarative_base
+# do i need relationship (below). if so, how do i incorporate it?
 from sqlalchemy.orm import sessionmaker, relationship
+# do I need this next line? Don't think I'm using it
 from sqlalchemy import func
 
 import csv
 import datetime
 import time
+from statistics import median, mean, multimode
 
 # why do i need this if i've imported datetime above? does the above statement not import ALL of the datetime functions?
 from datetime import date
 
-from statistics import median, mode, mean
+
 
 engine = create_engine("sqlite:///inventory.db", echo=False)
 Session = sessionmaker(bind=engine)
@@ -48,10 +51,10 @@ class Product(Base):
       Brand ID = {self.brand_id}
       """
 
-#  *******MUST FIGURE OUT HOW TO REMOVE THE HEADER ROW**********
 def add_brands_csv():
     with open('brands.csv') as csvfile:
         data = csv.reader(csvfile)
+        header = next(data)
         for row in data:
             brand_in_db = session.query(Brands).filter(Brands.brand_name==row[0]).one_or_none()
             if brand_in_db == None:
@@ -60,10 +63,10 @@ def add_brands_csv():
                 session.add(new_brand)
         session.commit()
 
-#  *******MUST FIGURE OUT HOW TO REMOVE THE HEADER ROW**********
 def add_inventory_csv():
     with open('inventory.csv') as csvfile:
         data = csv.reader(csvfile)
+        header = next(data)
         for row in data:
             product_in_db = session.query(Product).filter(Product.product_name==row[0]).one_or_none()
             if product_in_db == None:
@@ -93,11 +96,21 @@ def clean_price(price_str):
             \rEx: 10.99
             \rPress enter to try again.
             \r******************************''')
-        #return  ???
     else:
         return int(price_float * 100)
 
-
+def clean_quantity(quantity):
+    try:
+        quantity = int(quantity)
+    except ValueError:
+        input('''
+            \n********* QUANTITY ERROR *******
+            \rThe quantity should be a whole positive symbol.
+            \rEx: 4
+            \rPress enter to try again.
+            \r******************************''')
+    else:
+        return(quantity)
 
 def clean_date_updated(date_str):
     split_date = date_str.split('/')
@@ -127,6 +140,7 @@ def menu():
             \rPress enter to try again.''')
 
 def find_brand_id(brand_name):
+    #why do i need this scalar subquery here?
     brand_id = session.query(Brands.brand_id).filter(Brands.brand_name == brand_name).scalar_subquery()
     return brand_id
 
@@ -135,7 +149,7 @@ def clean_id(id_str, options):
         product_id = int(id_str)
     except ValueError:
         input('''
-            \n********* ID ERROR *******
+            \r********* ID ERROR *******
             \rThe ID should be a number.
             \rPress enter to try again.
             \r******************************''')
@@ -145,12 +159,19 @@ def clean_id(id_str, options):
             return product_id
         else:
             input(f'''
-                \n********* ID ERROR *******
+                \n********* ID ERROR *********
                 \rOptions: {options}
                 \rPress enter to try again.
-                \r******************************''')
+                \r****************************''')
             return
 
+def find_brand_from_brand_id(brand_id):
+    brand = session.query(Brands).filter(Brands.brand_id == brand_id).first()
+    return(brand.brand_name)
+
+def nice_price(price):
+    nice_price = float(price/100)
+    return (f"${nice_price:.2f}")
 
 def program():
     program_running = True
@@ -159,8 +180,15 @@ def program():
         if choice == 'N':
             #New Product
             product_name = input('Product Name:  ')
+
             # must ensure product_quantity is an integer
-            product_quantity = input('Product Quantity: ')
+            quantity_error = True
+            while quantity_error:
+                product_quantity = input('Product Quantity: ')
+                product_quantity = clean_quantity(product_quantity)
+                if type(product_quantity) == int:
+                    quantity_error = False
+
             price_error = True
             while price_error:
                 product_price = input('Product Price (Ex: 5.64):  ')
@@ -169,11 +197,13 @@ def program():
                     price_error = False
             date_updated = date.today()
             product_brand = input('Product Brand: ')
-            # must insert code to take product brand and match it to a brand id, maybe a separate function that matches brand name with brand id
-            # maybe take the product brand entered, look it up in the table, if it doesn't exist say 'this looks like a new brand, would you like to add it to the db? to view list of brands, press XX
-
+            ### need to figure out how to chekc if the brand is in the brands table and add it if its not
+            print(session.query(Brands).filter(brand_name = product_brand))
+            #if session.query(Brands).filter(brand_name = product_brand) == None:
+                #add brand to brands table
+                #new_brand = Brand(product_brand=product_brand)
+                #session.add(new_brand)
             brand_id = find_brand_id(product_brand)
-
             new_product = Product(product_name=product_name, product_quantity=product_quantity, product_price=product_price, date_updated=date_updated, brand_id=brand_id)
             session.add(new_product)
             session.commit()
@@ -182,27 +212,27 @@ def program():
 
         elif choice == 'V':
             # view product
-            #generates a list of all product ids
             product_id_options = []
             for product in session.query(Product):
                 product_id_options.append(product.product_id)
             id_error = True
             while id_error:
                 chosen_product_id = input(f'''
-                    \nProduct ID Options: {product_id_options}
-                    \rPlease enter a product id to view the product: ''')
+                    \rProduct ID Options: {product_id_options}
+                    \rPlease enter a Product ID to view the product: ''')
                 chosen_product_id = clean_id(chosen_product_id, product_id_options)
                 if type(chosen_product_id) == int:
                     id_error = False
             chosen_product = session.query(Product).filter(Product.product_id==chosen_product_id).first()
             print(chosen_product)
             print(f'''
-                \nProduct Name: {chosen_product.product_name}
-                \nProduct Quantity: {chosen_product.product_quantity}
+                \rProduct Name: {chosen_product.product_name}
+                \rProduct Quantity: {chosen_product.product_quantity}
                 \rDate Last Updated: {chosen_product.date_updated}
-                \rPrice: ${chosen_product.product_price / 100}
-                \rBrand ID: {chosen_product.brand_id}''')
-                # should add some way here to display Brand Name
+                \rPrice: {nice_price(chosen_product.product_price)}
+                \rBrand ID: {chosen_product.brand_id}
+                \rBrand: {find_brand_from_brand_id(chosen_product.brand_id)}''')
+            input('\nPress enter to return to the main menu.')
 
             # sub_choice = submenu()
             # if sub_choice == '1':
@@ -221,14 +251,26 @@ def program():
             #     session.commit()
             #     print('Book delected!')
             #     time.sleep(1.5)
+
         elif choice == 'A':
             #analyze
-            # would be good to add code to show multiple products if they are both/all the most expensive/least expensive
-            most_expensive_product = session.query(Product).order_by(Product.product_price).first()
-            least_expensive_product = session.query(Product).order_by(Product.product_price.desc()).first()
-            # this next one is not correct...should group by brand id then return brand
-            #brand_with_most_products = session.query(Product).count()
-
+            highest_price = (session.query(Product).order_by(Product.product_price.desc()).first()).product_price
+            lowest_price = (session.query(Product).order_by(Product.product_price).first()).product_price
+            highest_priced_items = []
+            lowest_priced_items = []
+            for item in session.query(Product).filter_by(product_price = highest_price):
+                highest_priced_items.append(item.product_name)
+            for item in session.query(Product).filter_by(product_price=lowest_price):
+                lowest_priced_items.append(item.product_name)
+            brand_ids = []
+            # generate a list of all brand ids then find the mode(s)
+            for item in session.query(Product):
+                brand_ids.append(item.brand_id)
+            most_common_brand_ids = multimode(brand_ids)
+            most_common_brands = []
+            for item in most_common_brand_ids:
+                brand_name = find_brand_from_brand_id(item)
+                most_common_brands.append(brand_name)
             product_prices = []
             total_value_of_inventory = 0
             for product in session.query(Product):
@@ -236,25 +278,20 @@ def program():
                     total_value_of_inventory = total_value_of_inventory + (product.product_quantity * product.product_price)
             mean_product_price = round(mean(product_prices))
             median_product_price = median(product_prices)
-            mode_product_price = mode(product_prices)
             total_number_of_items_in_inventory = session.query(Product).count()
 
-            # \rMost Expensive Product: {most_expensive_product}
-            # \rLeast Expensive Product: {least_expensive_product}
-            #\rBrand with the Most Products: {brand_with_most_products}
-
             print(f'''\n****** INVENTORY ANALYSIS *****
-                \rAverage (Mean) Product Price: {mean_product_price}
-                \rMedian Product Price: {median_product_price}
-                \rMode Product Price: {mode_product_price}
+                \rMost Expensive Product(s): {nice_price(highest_price)} -- {', '.join(highest_priced_items)}
+                \rLeast Expensive Product(s): {nice_price(lowest_price)} -- {', '.join(lowest_priced_items)}
+                \rBrand(s) with the Most Products: {', '.join(most_common_brands)}
+                \rAverage (Mean) Product Price: {nice_price(mean_product_price)}
+                \rMedian Product Price: {nice_price(median_product_price)}
                 \rTotal Number of Items in Inventory: {total_number_of_items_in_inventory}
-                \rTotal Value of Inventory: {total_value_of_inventory}''')
+                \rTotal Value of Inventory: {nice_price(total_value_of_inventory)}''')
             input('\nPress enter to return to the main menu.')
         else:
             print('GOODBYE')
-            app_running = False
-
-
+            program_running = False
 
 
 if __name__ == "__main__":
