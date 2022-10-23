@@ -197,12 +197,11 @@ def program():
                     price_error = False
             date_updated = date.today()
             product_brand = input('Product Brand: ')
-            ### need to figure out how to chekc if the brand is in the brands table and add it if its not
-            print(session.query(Brands).filter(brand_name = product_brand))
-            #if session.query(Brands).filter(brand_name = product_brand) == None:
-                #add brand to brands table
-                #new_brand = Brand(product_brand=product_brand)
-                #session.add(new_brand)
+            brand_in_db = session.query(Brands).filter(Brands.brand_name == product_brand).one_or_none()
+            if brand_in_db == None:
+                new_brand = Brands(brand_name=product_brand)
+                session.add(new_brand)
+                session.commit()
             brand_id = find_brand_id(product_brand)
             new_product = Product(product_name=product_name, product_quantity=product_quantity, product_price=product_price, date_updated=date_updated, brand_id=brand_id)
             session.add(new_product)
@@ -224,7 +223,6 @@ def program():
                 if type(chosen_product_id) == int:
                     id_error = False
             chosen_product = session.query(Product).filter(Product.product_id==chosen_product_id).first()
-            print(chosen_product)
             print(f'''
                 \rProduct Name: {chosen_product.product_name}
                 \rProduct Quantity: {chosen_product.product_quantity}
@@ -289,6 +287,19 @@ def program():
                 \rTotal Number of Items in Inventory: {total_number_of_items_in_inventory}
                 \rTotal Value of Inventory: {nice_price(total_value_of_inventory)}''')
             input('\nPress enter to return to the main menu.')
+
+        elif choice == 'B':
+            #backup
+            #with open('backup_inventory.csv', 'a') as csvfile:
+            #    fieldnames = ['first_name', 'last_name', 'topic']
+            #    inventorywriter = csv.DictWriter(csvfile, fieldnames=fieldnames)
+##
+            #    })
+            with open('backup_brands.csv', 'w', newline='') as csvfile:
+                #brandswriter = csv.writer(csvfile, delimiter=' ')
+                brandswriter = csv.writer(csvfile)
+                brandswriter.writerow(session.query(Brands))
+
         else:
             print('GOODBYE')
             program_running = False
