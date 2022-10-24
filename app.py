@@ -138,7 +138,20 @@ def menu():
             input('''
             \rPlease choose one of the options above (N, V, A, B, or Q)
             \rPress enter to try again.''')
-
+def submenu():
+    while True:
+        print('''
+            \r1) Edit
+            \r2) Delete
+            \r3) Return to main menu''')
+        choice = input('What would you like to do?  ')
+        if choice in ['1', '2', '3']:
+            return choice
+        else:
+            input('''
+            \rPlease choose one of the options above.
+            \rA number from 1-3
+            \rPress enter to try again.''')
 def find_brand_id(brand_name):
     #why do i need this scalar subquery here?
     brand_id = session.query(Brands.brand_id).filter(Brands.brand_name == brand_name).scalar_subquery()
@@ -172,6 +185,28 @@ def find_brand_from_brand_id(brand_id):
 def nice_price(price):
     nice_price = float(price/100)
     return (f"${nice_price:.2f}")
+
+#this function was taken directly from books.db -- needs to be edited for this program
+def edit_check(column_name, current_value):
+    print(f'\n**** EDIT {column_name} ****')
+    if column_name == 'Price':
+        print(f'\rCurrent Value:  {current_value/100}')
+    else:
+        print(f'\rCurrent Value: {current_value}')
+
+    if column_name == 'Date' or column_name == 'Price':
+        while True:
+            changes = input('What would you like to change the value to? ')
+            if column_name == 'Date':
+                changes = clean_date(changes)
+                if type(changes) == datetime.date:
+                    return changes
+            elif column_name == 'Price':
+                changes = clean_price(changes)
+                if type(changes) == int:
+                    return changes
+    else:
+        return input('What would you like to change the value to? ')
 
 def program():
     program_running = True
@@ -230,25 +265,24 @@ def program():
                 \rPrice: {nice_price(chosen_product.product_price)}
                 \rBrand ID: {chosen_product.brand_id}
                 \rBrand: {find_brand_from_brand_id(chosen_product.brand_id)}''')
-            input('\nPress enter to return to the main menu.')
 
-            # sub_choice = submenu()
-            # if sub_choice == '1':
-            #     #edit
-            #     the_book.title = edit_check('Title', the_book.title)
-            #     the_book.author = edit_check('Author', the_book.author)
-            #     the_book.published_date = edit_check('Date', the_book.published_date)
-            #     the_book.price = edit_check('Price', the_book.price)
-            #     session.commit()
-            #     print('Book updated!')
-            #     time.sleep(1.5)
-            #
-            # elif sub_choice == '2':
-            #     #delete
-            #     session.delete(the_book)
-            #     session.commit()
-            #     print('Book delected!')
-            #     time.sleep(1.5)
+            sub_choice = submenu()
+            if sub_choice == '1':
+                 #edit
+                 chosen_product.product_name = edit_check('Product Name', chosen_product.product_name)
+                 chosen_product.quantity = edit_check('Quantity', chosen_product.product_quantity)
+                 chosen_product.product_price = edit_check('Price', chosen_product.product_price)
+                 chosen_product.date_updated = date.today()
+                 session.commit()
+                 print('Product updated!')
+                 time.sleep(1.5)
+
+            elif sub_choice == '2':
+                 #delete
+                 session.delete(chosen_product)
+                 session.commit()
+                 print('Product deleted!')
+                 time.sleep(1.5)
 
         elif choice == 'A':
             #analyze
@@ -290,11 +324,7 @@ def program():
 
         elif choice == 'B':
             #backup
-            #with open('backup_inventory.csv', 'a') as csvfile:
-            #    fieldnames = ['first_name', 'last_name', 'topic']
-            #    inventorywriter = csv.DictWriter(csvfile, fieldnames=fieldnames)
-##
-            #    })
+            #need to sort out formatting and delete contents of file or add date when adding new backups to the file
             with open('backup_brands.csv', 'w', newline='') as csvfile:
                 #brandswriter = csv.writer(csvfile, delimiter=' ')
                 brandswriter = csv.writer(csvfile)
