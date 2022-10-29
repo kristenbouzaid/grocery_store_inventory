@@ -194,19 +194,20 @@ def edit_check(column_name, current_value):
     else:
         print(f'\rCurrent Value: {current_value}')
 
-    if column_name == 'Date' or column_name == 'Price':
-        while True:
-            changes = input('What would you like to change the value to? ')
-            if column_name == 'Date':
-                changes = clean_date(changes)
-                if type(changes) == datetime.date:
-                    return changes
-            elif column_name == 'Price':
-                changes = clean_price(changes)
-                if type(changes) == int:
-                    return changes
-    else:
-        return input('What would you like to change the value to? ')
+    # I don't think I need this code.
+    # if column_name == 'Date' or column_name == 'Price':
+    #     while True:
+    #         changes = input('What would you like to change the value to? ')
+    #         if column_name == 'Date':
+    #             changes = clean_date(changes)
+    #             if type(changes) == datetime.date:
+    #                 return changes
+    #         elif column_name == 'Price':
+    #             changes = clean_price(changes)
+    #             if type(changes) == int:
+    #                 return changes
+    #else:
+    #    return input('What would you like to change the value to? ')
 
 def program():
     program_running = True
@@ -324,12 +325,24 @@ def program():
 
         elif choice == 'B':
             #backup
-            #need to sort out formatting and delete contents of file or add date when adding new backups to the file
             with open('backup_brands.csv', 'w', newline='') as csvfile:
                 #brandswriter = csv.writer(csvfile, delimiter=' ')
                 brandswriter = csv.writer(csvfile)
-                brandswriter.writerow(session.query(Brands))
+                brandswriter.writerow(['Brand_ID', 'Brand_Name'])
+                for brand in session.query(Brands):
+                    brandswriter.writerow([brand.brand_id, brand.brand_name])
+            with open('backup_inventory.csv', 'w', newline='') as csvfile:
+                inventorywriter = csv.writer(csvfile)
+                inventorywriter.writerow(['Product_ID', 'Product_Name', 'Product_Quantity', 'Product_Price', 'Date_Updated', 'Product_Brand_ID'])
+                for product in session.query(Product):
+                    inventorywriter.writerow([product.product_id, product.product_name, product.product_quantity, product.product_price, product.date_updated, product.brand_id])
 
+            #writer = csv.writer(open("out.csv", 'w'))
+
+            #writer.writerow(['bob', '2 main st', '703', 'yada'])
+            #writer.writerow(['mary', '3 main st', '704', 'yada'])
+            print("Database backed up!")
+            time.sleep(1.5)
         else:
             print('GOODBYE')
             program_running = False
