@@ -1,9 +1,7 @@
 from sqlalchemy import (create_engine, Column, Integer, String, Date, ForeignKey)
 from sqlalchemy.ext.declarative import declarative_base
-# do i need relationship (below). if so, how do i incorporate it?
-from sqlalchemy.orm import sessionmaker, relationship
-# do I need this next line? Don't think I'm using it
-from sqlalchemy import func
+from sqlalchemy.orm import sessionmaker
+
 
 engine = create_engine("sqlite:///inventory.db", echo=False)
 Session = sessionmaker(bind=engine)
@@ -14,10 +12,6 @@ class Brands(Base):
     __tablename__ = 'brands'
     brand_id = Column(Integer, primary_key=True)
     brand_name = Column("Brand Name", String)
-
-    #consider formatting repr as
-    # def __repr__(self):
-    #     return f'Title: {self.title} Author: {self.author} Published: {self.published_date} Price: {self.price}'
 
     def __repr__(self):
         return f"""

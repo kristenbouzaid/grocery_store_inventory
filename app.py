@@ -1,10 +1,9 @@
 from models import (Base, session, Brands, Product, engine)
 
-import datetime
 import csv
 import time
 from statistics import median, mean, multimode
-# why do i need this if i've imported datetime above? does the above statement not import ALL of the datetime functions?
+import datetime
 from datetime import date
 
 #function to add the brand csv file to the db file
@@ -114,13 +113,13 @@ def submenu():
             \rPlease choose one of the options above - a number from 1-3.
             \rPress enter to try again.''')
 
-
+# function to clean the product_id when input to view a product
 def clean_id(id_str, options):
     try:
         product_id = int(id_str)
     except ValueError:
         input('''
-            \r********* ID ERROR *******
+            \r********** ID ERROR **********
             \rThe ID should be a number.
             \rPress enter to try again.
             \r******************************''')
@@ -130,17 +129,12 @@ def clean_id(id_str, options):
             return product_id
         else:
             input(f'''
-                \n********* ID ERROR *********
+                \n********** ID ERROR **********
                 \rOptions: {options}
                 \rPress enter to try again.
-                \r****************************''')
+                \r******************************''')
             return
 
-# this has been superceded by the below...just keeping as a comment until I'm sure.
-#def find_brand_id(brand_name):
-    #why do i need this scalar subquery here?
-    #brand_id = session.query(Brands.brand_id).filter(Brands.brand_name == brand_name).scalar_subquery()
-    #return brand_id
 def find_brand_from_brand_id(brand_id):
     brand = session.query(Brands).filter(Brands.brand_id == brand_id).first()
     return(brand.brand_name)
@@ -153,14 +147,12 @@ def nice_price(price):
     nice_price = float(price/100)
     return (f"${nice_price:.2f}")
 
-
 def edit_check(column_name, current_value):
     print(f'\n**** EDIT {column_name} ****')
     if column_name == 'Price':
-        print(f'\rCurrent Value:  {float(current_value/100)}')
+        print(f'''\rCurrent Value:  {current_value:.2f}''')
     else:
-        print(f'\rCurrent Value: {current_value}')
-
+        print(f'''\rCurrent Value: {current_value}''')
     if column_name == 'Price' or column_name == 'Quantity':
         while True:
             changes = input('What would you like to change the value to? ')
@@ -172,20 +164,13 @@ def edit_check(column_name, current_value):
                 changes = clean_quantity(changes)
                 if type(changes) == int:
                     return changes
+    if column_name == "Brand Name":
+        changes = input('What would you like to change the value to? ')
+        add_new_brand(changes)
+        brand_id = find_brand_id_from_brand(changes)
+        return(brand_id)
     else:
         return input('What would you like to change the value to? ')
-def subsubmenu():
-    while True:
-        print('''
-            \r1) Overwrite existing data with this new data.
-            \r2) Leave existing data and discard new entry.''')
-        choice = input(f'\nWhat would you like to do?  ')
-        if choice in ['1', '2']:
-            choice = int(choice)
-            return choice
-        else:
-            input('''
-            \rPlease choose one of the options above. Press enter to try again.''')
 
 def add_new_brand(product_brand):
     brand_in_db = session.query(Brands).filter(Brands.brand_name == product_brand).one_or_none()
@@ -215,45 +200,19 @@ def program():
                     price_error = False
             date_updated = date.today()
             product_brand = input('Product Brand: ')
+            # check to see if the Product Name already exists in the db. If it does, then the existing data must be older (since this new data is updated) today, so the old record is deleted and then the new one is added
             product_in_db = session.query(Product).filter(Product.product_name == product_name).one_or_none()
             if product_in_db != None:
-                print(f'''\nProduct Name already exists in database!''')
-                overwrite_choice = subsubmenu()
-                if overwrite_choice == 1:
                     session.delete(product_in_db)
-                    # check in to see if Brand already exists in db, if it does NOT, this code adds it as a new brand
-                    #brand_in_db = session.query(Brands).filter(Brands.brand_name == product_brand).one_or_none()
-                    #if brand_in_db == None:
-                    #    new_brand = Brands(brand_name=product_brand)
-                    #    session.add(new_brand)
-                    #    session.commit()
-                    add_new_brand(product_brand)
-                    #brand_id = find_brand_id(product_brand)
-                    brand_id = find_brand_id_from_brand(product_brand)
-                    new_product = Product(product_name=product_name, product_quantity=product_quantity,
+            # checks to see if the brand is listed. if not, adds a brand
+            add_new_brand(product_brand)
+            brand_id = find_brand_id_from_brand(product_brand)
+            new_product = Product(product_name=product_name, product_quantity=product_quantity,
                                           product_price=product_price, date_updated=date_updated, brand_id=brand_id)
-                    session.add(new_product)
-                    session.commit()
-                    print('\nProduct added!')
-                    time.sleep(1.5)
-                else:
-                    print('\nProduct addition cancelled!')
-                    time.sleep(1.5)
-            else:
-                # check in to see if Brand already exists in db, if it does NOT, this code adds it as a new brand
-                add_new_brand(product_brand)
-                #brand_in_db = session.query(Brands).filter(Brands.brand_name == product_brand).one_or_none()
-                #if brand_in_db == None:
-                #    new_brand = Brands(brand_name=product_brand)
-                #    session.add(new_brand)
-                #    session.commit()
-                brand_id = find_brand_id_from_brand(product_brand)
-                new_product = Product(product_name=product_name, product_quantity=product_quantity,
-                                      product_price=product_price, date_updated=date_updated, brand_id=brand_id)
-                session.add(new_product)
-                session.commit()
-                print('\nProduct added!')
-                time.sleep(1.5)
+            session.add(new_product)
+            session.commit()
+            print('\nProduct added!')
+            time.sleep(1.5)
 
         elif choice == 'V':
             # view product
@@ -278,18 +237,15 @@ def program():
                 \rBrand Name: {find_brand_from_brand_id(chosen_product.brand_id)}''')
 
             sub_choice = submenu()
-            # need to ensure that price and quantity and cleaned and checked with clean_price and clean_quantity
             if sub_choice == '1':
-                 #edit
-                 chosen_product.product_name = edit_check('Product Name', chosen_product.product_name)
-                 chosen_product.quantity = edit_check('Quantity', chosen_product.product_quantity)
-                 chosen_product.product_price = edit_check('Price', chosen_product.product_price)
-                 # must take brand name input, check to see if it exists in db, if yes - return id, if no - add and return id
-                 #chosen_product.product_price = edit_check('Brand', chosen_product.product_brand)
-                 chosen_product.date_updated = date.today()
-                 session.commit()
-                 print('Product updated!')
-                 time.sleep(1.5)
+                #edit
+                chosen_product.quantity = edit_check('Quantity', chosen_product.product_quantity)
+                chosen_product.product_price = edit_check('Price', chosen_product.product_price)
+                chosen_product.brand_id = edit_check('Brand Name', find_brand_from_brand_id(chosen_product.brand_id))
+                chosen_product.date_updated = date.today()
+                session.commit()
+                print('Product updated!')
+                time.sleep(1.5)
 
             elif sub_choice == '2':
                  #delete
