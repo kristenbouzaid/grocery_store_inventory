@@ -1,0 +1,16 @@
+Treehouse Data Analyst TechDegree Unit 4 Project: Grocery Store Inventory
+
+This project is a simple (yet not so simple to create!) database for managing a sample grocery store inventory database.
+
+Users can:
+
+- view products
+- add products
+- delete products
+- edit products
+- see product analysis data
+- back up the database
+
+
+Code by: Kristen Bouzaid
+Date: 30 October 2022

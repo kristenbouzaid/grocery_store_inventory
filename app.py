@@ -3,6 +3,7 @@ from models import (Base, session, Brands, Product, engine)
 import csv
 import time
 from statistics import median, mean, multimode
+# why do I need both of these lines below? Why doesn't 'import datetime' already INCLUDE 'date'?
 import datetime
 from datetime import date
 
