@@ -1,74 +1,34 @@
-from sqlalchemy import (create_engine, Column, Integer,
-                        String, Date, ForeignKey)
-from sqlalchemy.ext.declarative import declarative_base
-# do i need relationship (below). if so, how do i incorporate it?
-from sqlalchemy.orm import sessionmaker, relationship
-# do I need this next line? Don't think I'm using it
-from sqlalchemy import func
+from models import (Base, session, Brands, Product, engine)
 
-import csv
 import datetime
+import csv
 import time
 from statistics import median, mean, multimode
-
 # why do i need this if i've imported datetime above? does the above statement not import ALL of the datetime functions?
 from datetime import date
 
-
-
-engine = create_engine("sqlite:///inventory.db", echo=False)
-Session = sessionmaker(bind=engine)
-session = Session()
-Base = declarative_base()
-
-class Brands(Base):
-    __tablename__ = 'brands'
-    brand_id = Column(Integer, primary_key=True)
-    brand_name = Column("Brand Name", String)
-
-    def __repr__(self):
-        return f"""
-      \nBrand ID = {self.brand_id}\r
-      Name = {self.brand_name}
-      """
-
-class Product(Base):
-    __tablename__ = 'products'
-    product_id = Column(Integer, primary_key=True)
-    product_name = Column('Product Name', String)
-    product_quantity = Column('Quantity', Integer)
-    product_price = Column('Price', Integer)
-    date_updated = Column('Date Updated', Date)
-    brand_id = Column(Integer, ForeignKey("brands.brand_id"))
-
-    def __repr__(self):
-        return f"""
-      \nProduct ID {self.product_id}\r
-      Product Name = {self.product_name}\r
-      Product Quantity = {self.product_quantity}\r
-      Product Price = {self.product_price}\r
-      Date Updated = {self.date_updated}\r
-      Brand ID = {self.brand_id}
-      """
-
+#function to add the brand csv file to the db file
 def add_brands_csv():
     with open('brands.csv') as csvfile:
         data = csv.reader(csvfile)
         header = next(data)
         for row in data:
             brand_in_db = session.query(Brands).filter(Brands.brand_name==row[0]).one_or_none()
+            # checks for duplicate brand names in the source data
             if brand_in_db == None:
                 brand_name = row[0]
                 new_brand = Brands(brand_name=brand_name)
                 session.add(new_brand)
         session.commit()
 
+#function to add the inventory csv file to the db file
 def add_inventory_csv():
     with open('inventory.csv') as csvfile:
         data = csv.reader(csvfile)
         header = next(data)
         for row in data:
             product_in_db = session.query(Product).filter(Product.product_name==row[0]).one_or_none()
+            # checks for duplicate products in the source data
             if product_in_db == None:
                 product_name = row[0]
                 product_price = clean_product_price(row[1])
@@ -80,38 +40,13 @@ def add_inventory_csv():
                 session.add(new_product)
         session.commit()
 
+#function to clean the price when imported from the source data
 def clean_product_price (price_str):
     stripped_price = price_str.strip("$")
     price_float = float(stripped_price)
     return int(price_float * 100)
 
-def clean_price(price_str):
-    # need to add code here to clean price when it's input - same as book.db
-    try:
-        price_float = float(price_str)
-    except ValueError:
-        input('''
-            \n********* PRICE ERROR *******
-            \rThe price should be a number without a currency symbol.
-            \rEx: 10.99
-            \rPress enter to try again.
-            \r******************************''')
-    else:
-        return int(price_float * 100)
-
-def clean_quantity(quantity):
-    try:
-        quantity = int(quantity)
-    except ValueError:
-        input('''
-            \n********* QUANTITY ERROR *******
-            \rThe quantity should be a whole positive symbol.
-            \rEx: 4
-            \rPress enter to try again.
-            \r******************************''')
-    else:
-        return(quantity)
-
+#function to clean the date when imported from the source data
 def clean_date_updated(date_str):
     split_date = date_str.split('/')
     month = int(split_date[0])
@@ -119,6 +54,32 @@ def clean_date_updated(date_str):
     year = int(split_date[2])
     return_date = datetime.date(year, month, day)
     return return_date
+
+# function to clean the quantity when edited or input for a new product
+def clean_quantity(quantity):
+    try:
+        quantity = int(quantity)
+    except ValueError:
+        input('''
+            \n********* QUANTITY ERROR *******
+            \rThe quantity should be a whole positive number (Ex. 4).
+            \rPress enter to try again.
+            \r********************************''')
+    else:
+        return(quantity)
+
+# function to clean the price when edited or input for a new product
+def clean_price(price_str):
+    try:
+        price_float = float(price_str)
+    except ValueError:
+        input('''
+            \n********** PRICE ERROR **********
+            \rThe price should be a number without a currency symbol (Ex. 10.99)
+            \rPress enter to try again.
+            \r*********************************''')
+    else:
+        return int(price_float * 100)
 
 def menu():
     while True:
@@ -138,24 +99,21 @@ def menu():
             input('''
             \rPlease choose one of the options above (N, V, A, B, or Q)
             \rPress enter to try again.''')
+
 def submenu():
     while True:
         print('''
             \r1) Edit
             \r2) Delete
             \r3) Return to main menu''')
-        choice = input('What would you like to do?  ')
+        choice = input(f'\nWhat would you like to do?  ')
         if choice in ['1', '2', '3']:
             return choice
         else:
             input('''
-            \rPlease choose one of the options above.
-            \rA number from 1-3
+            \rPlease choose one of the options above - a number from 1-3.
             \rPress enter to try again.''')
-def find_brand_id(brand_name):
-    #why do i need this scalar subquery here?
-    brand_id = session.query(Brands.brand_id).filter(Brands.brand_name == brand_name).scalar_subquery()
-    return brand_id
+
 
 def clean_id(id_str, options):
     try:
@@ -178,36 +136,63 @@ def clean_id(id_str, options):
                 \r****************************''')
             return
 
+# this has been superceded by the below...just keeping as a comment until I'm sure.
+#def find_brand_id(brand_name):
+    #why do i need this scalar subquery here?
+    #brand_id = session.query(Brands.brand_id).filter(Brands.brand_name == brand_name).scalar_subquery()
+    #return brand_id
 def find_brand_from_brand_id(brand_id):
     brand = session.query(Brands).filter(Brands.brand_id == brand_id).first()
     return(brand.brand_name)
+
+def find_brand_id_from_brand(brand):
+    brand = session.query(Brands).filter(Brands.brand_name == brand).first()
+    return(brand.brand_id)
 
 def nice_price(price):
     nice_price = float(price/100)
     return (f"${nice_price:.2f}")
 
-#this function was taken directly from books.db -- needs to be edited for this program
+
 def edit_check(column_name, current_value):
     print(f'\n**** EDIT {column_name} ****')
     if column_name == 'Price':
-        print(f'\rCurrent Value:  {current_value/100}')
+        print(f'\rCurrent Value:  {float(current_value/100)}')
     else:
         print(f'\rCurrent Value: {current_value}')
 
-    # I don't think I need this code.
-    # if column_name == 'Date' or column_name == 'Price':
-    #     while True:
-    #         changes = input('What would you like to change the value to? ')
-    #         if column_name == 'Date':
-    #             changes = clean_date(changes)
-    #             if type(changes) == datetime.date:
-    #                 return changes
-    #         elif column_name == 'Price':
-    #             changes = clean_price(changes)
-    #             if type(changes) == int:
-    #                 return changes
-    #else:
-    #    return input('What would you like to change the value to? ')
+    if column_name == 'Price' or column_name == 'Quantity':
+        while True:
+            changes = input('What would you like to change the value to? ')
+            if column_name == 'Price':
+                changes = clean_price(changes)
+                if type(changes) == int:
+                    return changes
+            if column_name == 'Quantity':
+                changes = clean_quantity(changes)
+                if type(changes) == int:
+                    return changes
+    else:
+        return input('What would you like to change the value to? ')
+def subsubmenu():
+    while True:
+        print('''
+            \r1) Overwrite existing data with this new data.
+            \r2) Leave existing data and discard new entry.''')
+        choice = input(f'\nWhat would you like to do?  ')
+        if choice in ['1', '2']:
+            choice = int(choice)
+            return choice
+        else:
+            input('''
+            \rPlease choose one of the options above. Press enter to try again.''')
+
+def add_new_brand(product_brand):
+    brand_in_db = session.query(Brands).filter(Brands.brand_name == product_brand).one_or_none()
+    if brand_in_db == None:
+        new_brand = Brands(brand_name=product_brand)
+        session.add(new_brand)
+        session.commit()
 
 def program():
     program_running = True
@@ -216,15 +201,12 @@ def program():
         if choice == 'N':
             #New Product
             product_name = input('Product Name:  ')
-
-            # must ensure product_quantity is an integer
             quantity_error = True
             while quantity_error:
                 product_quantity = input('Product Quantity: ')
                 product_quantity = clean_quantity(product_quantity)
                 if type(product_quantity) == int:
                     quantity_error = False
-
             price_error = True
             while price_error:
                 product_price = input('Product Price (Ex: 5.64):  ')
@@ -233,17 +215,45 @@ def program():
                     price_error = False
             date_updated = date.today()
             product_brand = input('Product Brand: ')
-            brand_in_db = session.query(Brands).filter(Brands.brand_name == product_brand).one_or_none()
-            if brand_in_db == None:
-                new_brand = Brands(brand_name=product_brand)
-                session.add(new_brand)
+            product_in_db = session.query(Product).filter(Product.product_name == product_name).one_or_none()
+            if product_in_db != None:
+                print(f'''\nProduct Name already exists in database!''')
+                overwrite_choice = subsubmenu()
+                if overwrite_choice == 1:
+                    session.delete(product_in_db)
+                    # check in to see if Brand already exists in db, if it does NOT, this code adds it as a new brand
+                    #brand_in_db = session.query(Brands).filter(Brands.brand_name == product_brand).one_or_none()
+                    #if brand_in_db == None:
+                    #    new_brand = Brands(brand_name=product_brand)
+                    #    session.add(new_brand)
+                    #    session.commit()
+                    add_new_brand(product_brand)
+                    #brand_id = find_brand_id(product_brand)
+                    brand_id = find_brand_id_from_brand(product_brand)
+                    new_product = Product(product_name=product_name, product_quantity=product_quantity,
+                                          product_price=product_price, date_updated=date_updated, brand_id=brand_id)
+                    session.add(new_product)
+                    session.commit()
+                    print('\nProduct added!')
+                    time.sleep(1.5)
+                else:
+                    print('\nProduct addition cancelled!')
+                    time.sleep(1.5)
+            else:
+                # check in to see if Brand already exists in db, if it does NOT, this code adds it as a new brand
+                add_new_brand(product_brand)
+                #brand_in_db = session.query(Brands).filter(Brands.brand_name == product_brand).one_or_none()
+                #if brand_in_db == None:
+                #    new_brand = Brands(brand_name=product_brand)
+                #    session.add(new_brand)
+                #    session.commit()
+                brand_id = find_brand_id_from_brand(product_brand)
+                new_product = Product(product_name=product_name, product_quantity=product_quantity,
+                                      product_price=product_price, date_updated=date_updated, brand_id=brand_id)
+                session.add(new_product)
                 session.commit()
-            brand_id = find_brand_id(product_brand)
-            new_product = Product(product_name=product_name, product_quantity=product_quantity, product_price=product_price, date_updated=date_updated, brand_id=brand_id)
-            session.add(new_product)
-            session.commit()
-            print('Product added!')
-            time.sleep(1.5)
+                print('\nProduct added!')
+                time.sleep(1.5)
 
         elif choice == 'V':
             # view product
@@ -265,14 +275,17 @@ def program():
                 \rDate Last Updated: {chosen_product.date_updated}
                 \rPrice: {nice_price(chosen_product.product_price)}
                 \rBrand ID: {chosen_product.brand_id}
-                \rBrand: {find_brand_from_brand_id(chosen_product.brand_id)}''')
+                \rBrand Name: {find_brand_from_brand_id(chosen_product.brand_id)}''')
 
             sub_choice = submenu()
+            # need to ensure that price and quantity and cleaned and checked with clean_price and clean_quantity
             if sub_choice == '1':
                  #edit
                  chosen_product.product_name = edit_check('Product Name', chosen_product.product_name)
                  chosen_product.quantity = edit_check('Quantity', chosen_product.product_quantity)
                  chosen_product.product_price = edit_check('Price', chosen_product.product_price)
+                 # must take brand name input, check to see if it exists in db, if yes - return id, if no - add and return id
+                 #chosen_product.product_price = edit_check('Brand', chosen_product.product_brand)
                  chosen_product.date_updated = date.today()
                  session.commit()
                  print('Product updated!')
@@ -313,7 +326,7 @@ def program():
             median_product_price = median(product_prices)
             total_number_of_items_in_inventory = session.query(Product).count()
 
-            print(f'''\n****** INVENTORY ANALYSIS *****
+            print(f'''\n****** INVENTORY ANALYSIS ******
                 \rMost Expensive Product(s): {nice_price(highest_price)} -- {', '.join(highest_priced_items)}
                 \rLeast Expensive Product(s): {nice_price(lowest_price)} -- {', '.join(lowest_priced_items)}
                 \rBrand(s) with the Most Products: {', '.join(most_common_brands)}
@@ -326,7 +339,6 @@ def program():
         elif choice == 'B':
             #backup
             with open('backup_brands.csv', 'w', newline='') as csvfile:
-                #brandswriter = csv.writer(csvfile, delimiter=' ')
                 brandswriter = csv.writer(csvfile)
                 brandswriter.writerow(['Brand_ID', 'Brand_Name'])
                 for brand in session.query(Brands):
@@ -336,11 +348,6 @@ def program():
                 inventorywriter.writerow(['Product_ID', 'Product_Name', 'Product_Quantity', 'Product_Price', 'Date_Updated', 'Product_Brand_ID'])
                 for product in session.query(Product):
                     inventorywriter.writerow([product.product_id, product.product_name, product.product_quantity, product.product_price, product.date_updated, product.brand_id])
-
-            #writer = csv.writer(open("out.csv", 'w'))
-
-            #writer.writerow(['bob', '2 main st', '703', 'yada'])
-            #writer.writerow(['mary', '3 main st', '704', 'yada'])
             print("Database backed up!")
             time.sleep(1.5)
         else:
