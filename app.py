@@ -3,9 +3,7 @@ from models import (Base, session, Brands, Product, engine)
 import csv
 import time
 from statistics import median, mean, multimode
-# why do I need both of these lines below? Why doesn't 'import datetime' already INCLUDE 'date'?
-import datetime
-from datetime import date
+from datetime import datetime
 
 #function to add the brand csv file to the db file
 def add_brands_csv():
@@ -52,7 +50,7 @@ def clean_date_updated(date_str):
     month = int(split_date[0])
     day = int(split_date[1])
     year = int(split_date[2])
-    return_date = datetime.date(year, month, day)
+    return_date = datetime(year, month, day)
     return return_date
 
 # function to clean the quantity when edited or input for a new product
@@ -199,7 +197,7 @@ def program():
                 product_price = clean_price(product_price)
                 if type(product_price) == int:
                     price_error = False
-            date_updated = date.today()
+            date_updated = datetime.now()
             product_brand = input('Product Brand: ')
             # check to see if the Product Name already exists in the db. If it does, then the existing data must be older (since this new data is updated) today, so the old record is deleted and then the new one is added
             product_in_db = session.query(Product).filter(Product.product_name == product_name).one_or_none()
@@ -243,7 +241,7 @@ def program():
                 chosen_product.quantity = edit_check('Quantity', chosen_product.product_quantity)
                 chosen_product.product_price = edit_check('Price', chosen_product.product_price)
                 chosen_product.brand_id = edit_check('Brand Name', find_brand_from_brand_id(chosen_product.brand_id))
-                chosen_product.date_updated = date.today()
+                chosen_product.date_updated = datetime.now()
                 session.commit()
                 print('Product updated!')
                 time.sleep(1.5)
