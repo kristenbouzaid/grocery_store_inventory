@@ -151,7 +151,7 @@ def nice_price(price):
 def edit_check(column_name, current_value):
     print(f'\n**** EDIT {column_name} ****')
     if column_name == 'Price':
-        print(f'''\rCurrent Value:  {current_value:.2f}''')
+        print(f'''\rCurrent Value:  {current_value/100:.2f}''')
     else:
         print(f'''\rCurrent Value: {current_value}''')
     if column_name == 'Price' or column_name == 'Quantity':
@@ -305,10 +305,11 @@ def program():
                 inventorywriter.writerow(['Product_ID', 'Product_Name', 'Product_Quantity', 'Product_Price', 'Date_Updated', 'Product_Brand_ID'])
                 for product in session.query(Product):
                     inventorywriter.writerow([product.product_id, product.product_name, product.product_quantity, product.product_price, product.date_updated, product.brand_id])
+            time.sleep(1.5)
             print("Database backed up!")
             time.sleep(1.5)
         else:
-            print('GOODBYE')
+            print('''Thank you for using Kristen's Krazy Grocery Inventory App! Goodbye.''')
             program_running = False
 
 
