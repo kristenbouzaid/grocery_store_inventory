@@ -3,7 +3,7 @@ from models import (Base, session, Brands, Product, engine)
 import csv
 import time
 from statistics import median, mean, multimode
-from datetime import datetime
+import datetime
 
 #function to add the brand csv file to the db file
 def add_brands_csv():
@@ -50,7 +50,7 @@ def clean_date_updated(date_str):
     month = int(split_date[0])
     day = int(split_date[1])
     year = int(split_date[2])
-    return_date = datetime(year, month, day)
+    return_date = datetime.date(year, month, day)
     return return_date
 
 # function to clean the quantity when edited or input for a new product
