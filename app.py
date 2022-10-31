@@ -3,7 +3,7 @@ from models import (Base, session, Brands, Product, engine)
 import csv
 import time
 from statistics import median, mean, multimode
-import datetime
+from datetime import datetime
 
 #function to add the brand csv file to the db file
 def add_brands_csv():
@@ -25,17 +25,23 @@ def add_inventory_csv():
         data = csv.reader(csvfile)
         header = next(data)
         for row in data:
-            product_in_db = session.query(Product).filter(Product.product_name==row[0]).one_or_none()
-            # checks for duplicate products in the source data
+            product_name = row[0]
+            product_price = clean_product_price(row[1])
+            product_quantity = int(row[2])
+            date_updated = clean_date_updated(row[3])
+            brand_name = row[4]
+            brand_id = session.query(Brands.brand_id).filter(Brands.brand_name == brand_name).scalar_subquery()
+
+            product_in_db = session.query(Product).filter(Product.product_name == row[0]).one_or_none()
             if product_in_db == None:
-                product_name = row[0]
-                product_price = clean_product_price(row[1])
-                product_quantity = int(row[2])
-                date_updated = clean_date_updated(row[3])
-                brand_name = row[4]
-                brand_id = session.query(Brands.brand_id).filter(Brands.brand_name == brand_name).scalar_subquery()
                 new_product = Product(product_name=product_name, product_price=product_price, product_quantity=product_quantity, date_updated=date_updated, brand_id=brand_id)
                 session.add(new_product)
+            elif product_in_db.date_updated < date_updated:
+                product_in_db.product_quantity = product_quantity
+                product_in_db.product_price = product_price
+                product_in_db.date_updated = date_updated
+                add_new_brand(brand_name)
+                product_in_db.brand_id = find_brand_id_from_brand(brand_name)
         session.commit()
 
 #function to clean the price when imported from the source data
@@ -50,7 +56,7 @@ def clean_date_updated(date_str):
     month = int(split_date[0])
     day = int(split_date[1])
     year = int(split_date[2])
-    return_date = datetime.date(year, month, day)
+    return_date = datetime(year, month, day)
     return return_date
 
 # function to clean the quantity when edited or input for a new product
@@ -199,17 +205,23 @@ def program():
                     price_error = False
             date_updated = datetime.now()
             product_brand = input('Product Brand: ')
-            # check to see if the Product Name already exists in the db. If it does, then the existing data must be older (since this new data is updated) today, so the old record is deleted and then the new one is added
+            # check to see if the Product Name already exists in the db. If it does, then update the existing record with the entered information
             product_in_db = session.query(Product).filter(Product.product_name == product_name).one_or_none()
             if product_in_db != None:
-                    session.delete(product_in_db)
-            # checks to see if the brand is listed. if not, adds a brand
-            add_new_brand(product_brand)
-            brand_id = find_brand_id_from_brand(product_brand)
-            new_product = Product(product_name=product_name, product_quantity=product_quantity,
+                product_in_db.product_quantity = product_quantity
+                product_in_db.product_price = product_price
+                product_in_db.date_updated = date_updated
+                add_new_brand(product_brand)
+                product_in_db.brand_id = find_brand_id_from_brand(product_brand)
+                session.commit()
+            else:
+                # checks to see if the brand is listed. if not, adds a brand
+                add_new_brand(product_brand)
+                brand_id = find_brand_id_from_brand(product_brand)
+                new_product = Product(product_name=product_name, product_quantity=product_quantity,
                                           product_price=product_price, date_updated=date_updated, brand_id=brand_id)
-            session.add(new_product)
-            session.commit()
+                session.add(new_product)
+                session.commit()
             print('\nProduct added!')
             time.sleep(1.5)
 
@@ -295,14 +307,21 @@ def program():
             #backup
             with open('backup_brands.csv', 'w', newline='') as csvfile:
                 brandswriter = csv.writer(csvfile)
-                brandswriter.writerow(['Brand_ID', 'Brand_Name'])
+                brandswriter.writerow(['brand_name'])
                 for brand in session.query(Brands):
-                    brandswriter.writerow([brand.brand_id, brand.brand_name])
+                    brandswriter.writerow([brand.brand_name])
             with open('backup_inventory.csv', 'w', newline='') as csvfile:
                 inventorywriter = csv.writer(csvfile)
-                inventorywriter.writerow(['Product_ID', 'Product_Name', 'Product_Quantity', 'Product_Price', 'Date_Updated', 'Product_Brand_ID'])
+                inventorywriter.writerow(['product_name', 'product_price', 'product_quantity', 'date_updated', 'brand_name'])
                 for product in session.query(Product):
-                    inventorywriter.writerow([product.product_id, product.product_name, product.product_quantity, product.product_price, product.date_updated, product.brand_id])
+                    export_formatted_price = nice_price(product.product_price)
+                    export_formatted_date = product.date_updated.strftime("%m/%d/%Y").replace('/0', '/')
+                    export_formatted_date = export_formatted_date.strip("0")
+                    export_brand_name = find_brand_from_brand_id(product.brand_id)
+                    inventorywriter.writerow([product.product_name, export_formatted_price, product.product_quantity, export_formatted_date, export_brand_name])
+
+
+
             time.sleep(1.5)
             print("Database backed up!")
             time.sleep(1.5)
